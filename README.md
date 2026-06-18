@@ -25,7 +25,7 @@ Her bölümde ilgili tasarımın problem tanımı, istatistiksel modeli ve hipot
 
 ## Dosyalar
 
-- `experimental-design-anova.rmd.Rmd` — R Markdown kaynak dosyası
+- `experimental-design-anova.Rmd` — R Markdown kaynak dosyası
 - `experimental-design-anova.pdf` — Derlenmiş (render edilmiş) çıktı
 
 ## Çalıştırma
