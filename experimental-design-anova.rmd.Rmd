@@ -1,0 +1,1805 @@
+---
+title: "Deney Tasarimi Analizleri"
+subtitle: "6 Adet Soru Cozumu"
+author: "Nisanur Kesim"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    latex_engine: xelatex
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.align = "center", fig.width = 6, fig.height = 4)
+```
+
+# BOLUM 1: Iki Faktorlu Tekrarli Faktoriyel Deney
+
+## Problemin Tanimi (Faktoriyel Deney)
+
+Bu bolumde iki faktorlu, tekrarli bir faktoriyel deney
+analiz edilmektedir. Amac, bir performans olcumunun **yontem tipi** ve
+**algoritma** faktorlerine ve bu iki faktorun **etkilesimine** gore degisip
+degismedigini incelemektir.
+
+Deney tasarimi:
+
+- **Faktor A (yontem):** 2 seviye -> Klasik, Modern  (i = 1, 2)
+- **Faktor B (algoritma):** 3 seviye -> Algo1, Algo2, Algo3  (j = 1, 2, 3)
+- **Tekrar sayisi:** n = 3  (her hucrede 3 gozlem, l = 1, 2, 3)
+- **Toplam gozlem:** N = a * b * n = 2 * 3 * 3 = 18
+
+Istatistiksel model (etkilesimli iki yonlu ANOVA):
+
+$$
+Y_{ijl} = \mu + \alpha_i + \beta_j + (\alpha\beta)_{ij} + \varepsilon_{(ij)l}
+$$
+
+Burada:
+
+- $\mu$ : genel ortalama
+- $\alpha_i$ : Faktor A (yontem) ana etkisi
+- $\beta_j$ : Faktor B (algoritma) ana etkisi
+- $(\alpha\beta)_{ij}$ : A x B etkilesim etkisi
+- $\varepsilon_{(ij)l}$ : rastgele hata, $\varepsilon \sim N(0, \sigma^2)$
+
+## Hipotezler
+
+**Faktor A (yontem) ana etkisi icin:**
+
+$$
+H_0: \alpha_1 = \alpha_2 = 0 \quad (\text{yontem etkisi yok})
+$$
+$$
+H_1: \text{en az bir } \alpha_i \neq 0
+$$
+
+**Faktor B (algoritma) ana etkisi icin:**
+
+$$
+H_0: \beta_1 = \beta_2 = \beta_3 = 0 \quad (\text{algoritma etkisi yok})
+$$
+$$
+H_1: \text{en az bir } \beta_j \neq 0
+$$
+
+**A x B etkilesimi icin:**
+
+$$
+H_0: (\alpha\beta)_{ij} = 0 \quad \forall i,j \quad (\text{etkilesim yok})
+$$
+$$
+H_1: \text{en az bir } (\alpha\beta)_{ij} \neq 0
+$$
+
+## Verinin Girilmesi
+
+Veriler, her hucrenin 3 tekrarini sirayla iceren tek bir sutun olarak girilmistir.
+
+```{r veri}
+# Faktor A: yontem (her seviye icin 9 gozlem -> 3 algoritma x 3 tekrar)
+yontem <- factor(rep(c("Klasik", "Modern"), each = 9))
+
+# Faktor B: algoritma (her seviye 3 tekrar, A icin 2 kez tekrarlaniyor)
+algoritma <- factor(rep(c("Algo1", "Algo2", "Algo3"), each = 3, times = 2))
+
+# Bagimli degisken: performans olcumleri
+performans <- c(
+  120, 118, 122,   # Klasik - Algo1
+  128, 130, 127,   # Klasik - Algo2
+  125, 124, 126,   # Klasik - Algo3
+  135, 138, 140,   # Modern - Algo1
+  150, 152, 149,   # Modern - Algo2
+  145, 147, 146    # Modern - Algo3
+)
+
+veri <- data.frame(yontem, algoritma, performans)
+veri
+```
+
+## Tanimlayici Toplamlar
+
+Satir, sutun, hucre ve genel kareler toplamlarini aliyoruz.
+
+
+### Hucre Toplamlari (yontem x algoritma)
+
+```{r hucre-toplam}
+hucre_toplamlari <- tapply(veri$performans,
+                           list(veri$yontem, veri$algoritma), sum)
+as.data.frame.matrix(hucre_toplamlari)
+```
+
+### Satir Toplamlari (Faktor A: yontem)
+
+```{r satir-toplam}
+satir_toplamlari <- tapply(veri$performans, veri$yontem, sum)
+data.frame(Yontem = names(satir_toplamlari),
+           Toplam = as.vector(satir_toplamlari))
+```
+
+### Sutun Toplamlari (Faktor B: algoritma)
+
+```{r sutun-toplam}
+sutun_toplamlari <- tapply(veri$performans, veri$algoritma, sum)
+data.frame(Algoritma = names(sutun_toplamlari),
+           Toplam = as.vector(sutun_toplamlari))
+```
+
+### Genel Toplam ve Kareler Toplami
+
+```{r genel-toplam}
+genel_toplam <- sum(veri$performans)
+sum_y_kare <- sum(veri$performans^2)
+data.frame(Olcum = c("Genel toplam (T..)", "Kareler toplami (sum Y^2)"),
+           Deger = c(genel_toplam, sum_y_kare))
+```
+### Kareler Toplami Hesabi (Elle Cozum)
+
+```
+a = 2 (yontem seviyesi), b = 3 (algoritma seviyesi), n = 3 (tekrar), N = 18
+
+Duzeltme terimi:
+  DT = T..^2 / N = 2422^2 / 18 = 325893.56
+
+Genel Kareler Toplami:
+  GKT = sum(Y^2) - DT = 328122 - 325893.56 = 2228.44
+
+Faktor A (yontem):
+  SS_A = (1120^2 + 1302^2) / (b*n) - DT
+       = (1254400 + 1695204) / 9 - 325893.56
+       = 327733.78 - 325893.56 = 1840.22
+
+Faktor B (algoritma):
+  SS_B = (773^2 + 836^2 + 813^2) / (a*n) - DT
+       = (597529 + 698896 + 660969) / 6 - 325893.56
+       = 326232.33 - 325893.56 = 338.78
+
+Hucreler (alt-toplam) kareler toplami:
+  SS_hucreler = (360^2+385^2+375^2+413^2+451^2+438^2)/n - DT
+              = 984264/3 - 325893.56 = 2194.44
+
+Etkilesim:
+  SS_AB = SS_hucreler - SS_A - SS_B = 2194.44 - 1840.22 - 338.78 = 15.44
+
+Hata:
+  SS_hata = GKT - SS_hucreler = 2228.44 - 2194.44 = 34.00
+```
+
+
+## Normallik Varsayiminin Kontrolu
+
+Her grup (hucre) icin Shapiro-Wilk normallik testi uygulanir.
+$H_0$: veri normal dagilmistir. p > 0.05 ise normallik saglanir.
+
+```{r normallik}
+by(veri$performans, list(veri$yontem, veri$algoritma), shapiro.test)
+```
+
+### Normallik Yorumu
+
+Alti hucrenin tamaminda p > 0.05 oldugundan her hucre icin H0
+(gozlemler normal dagilimdan gelir) %5 anlamlilik duzeyinde
+reddedilemez; normallik varsayimi hucre bazinda saglanmistir.
+
+Ancak her hucrede yalnizca n = 3 gozlem bulundugundan Shapiro-Wilk
+testinin gucu dusuktur. Bazi hucrelerde W = 1, p = 1 cikmasi da bu kucuk
+orneklem yapisinda gozlemlerin simetrik dagildigi
+durumlarda gorulen beklenen bir sonuctur. Bu kisitlara ragmen ANOVA'nin
+F testi normallik ihlallerine karsi dayanikli oldugundan,
+sonuclar modelin gecerliligi acisindan sorun olusturmaz.
+
+
+
+## ANOVA: Etkilesimli Tam Faktoriyel Model
+
+`yontem * algoritma` ifadesi su modele esittir:
+`yontem + algoritma + yontem:algoritma`
+(iki ana etki + etkilesim).
+
+```{r anova}
+model <- aov(performans ~ yontem * algoritma, data = veri)
+summary(model)
+```
+
+### ANOVA Tablosu (Elle Cozum ile Karsilastirma)
+
+```
+Kaynak        SD    KT        KO        F        F_tablo(0.05)   Karar
+---------------------------------------------------------------------------
+yontem (A)     1   1840.22   1840.22   649.49   4.75            H0 RED
+algoritma (B)  2    338.78    169.39    59.78   3.89            H0 RED
+A:B            2     15.44      7.72     2.73   3.89            H0 RED DEGIL
+Residuals     12     34.00      2.833
+Total         17   2228.44
+
+F_hata = MS_hata = 34/12 = 2.8333
+F_A  = 1840.22 / 2.8333 = 649.49
+F_B  = 169.39 / 2.8333 = 59.78
+F_AB =   7.72 / 2.8333 =  2.73
+```
+
+
+### ANOVA Yorumu
+
+Sonuclar asagidaki gibi degerlendirilir (alpha = 0.05):
+
+**1) Etkilesim (yontem:algoritma):**
+F = 2.725, p = 0.106 > 0.05 -> H0 reddedilemez.
+Yontem ile algoritma arasinda istatistiksel olarak anlamli bir etkilesim
+YOKTUR. Etkilesim anlamsiz oldugu icin ana etkiler tek baslarina guvenle
+yorumlanabilir.
+
+**2) Faktor A (yontem):**
+F = 649.49, p = 8.10e-12 < 0.05 -> H0 RED.
+Yontemin performans uzerinde guclu ve anlamli bir ana etkisi vardir. Satir
+toplamlarina gore Modern yontem (1302), Klasik yonteme (1120) gore belirgin
+sekilde daha yuksek performans uretmektedir.
+
+**3) Faktor B (algoritma):**
+F = 59.78, p = 5.76e-07 < 0.05 -> H0 RED.
+Algoritmalar arasinda anlamli performans farki vardir. Sutun toplamlarina
+gore Algo2 (836) en yuksek, Algo1 (773) en dusuk performansi vermektedir;
+hangi ikililerin birbirinden farkli oldugu TukeyHSD ile incelenir.
+
+**Genel degerlendirme:** Performansi belirleyen iki ana faktor de yuksek
+duzeyde anlamlidir. Etkilesim bulunmadigindan faktorlerin etkileri
+birbirinden bagimsiz yorumlanabilir. Hata kareler ortalamasinin cok kucuk
+olmasi (MS_hata = 2.833) hucre ici degiskenligin dusuk, dolayisiyla modelin
+aciklama gucunun yuksek oldugunu gosterir. En yuksek performans Modern
+yontem + Algo2 kombinasyonunda (hucre toplami 451) elde edilmistir.
+
+
+
+## Etkilesim Grafigi
+
+Etkilesim grafiginde cizgiler **paralel** ise etkilesim zayif/yok;
+cizgiler **kesisiyor** ise etkilesim gucludur.
+
+```{r interaction-plot}
+interaction.plot(veri$algoritma, veri$yontem, veri$performans,
+                 type = "b", pch = 19, col = c("blue", "red"),
+                 main = "Etkilesim Grafigi: Yontem x Algoritma",
+                 xlab = "Algoritma", ylab = "Ortalama Performans",
+                 trace.label = "Yontem")
+```
+
+### Grafik Yorumu
+
+Modern cizgisi tum algoritmalarda Klasik cizgisinin uzerindedir ve iki cizgi
+neredeyse paraleldir (ayni algoritma sirasini izler). Bu, etkilesimin zayif
+ve anlamsiz oldugunu gorsellestirmektedir. 
+
+
+## Coklu Karsilastirmalar (TukeyHSD)
+
+Etkilesim anlamsiz oldugu icin ana etkiler dogrudan yorumlanabilir.
+Anlamli ana etkiler icin Tukey HSD ile ikili karsilastirma yapilir.
+
+```{r tukey}
+TukeyHSD(model, c("yontem", "algoritma"))
+```
+
+### Tukey HSD Yorumu
+
+TukeyHSD, anlamli ana etkilerde hangi grup ikililerinin birbirinden
+farkli oldugunu ailesel hata oranini koruyarak gosterir. Bir ikili icin
+**guven araligi sifiri icermiyorsa** ve **p adj < 0.05** ise fark anlamlidir.
+
+**Faktor A (yontem):**
+
+| Karsilastirma | Fark | %95 GA | p adj | Sonuc |
+|:---|:---:|:---:|:---:|:---|
+| Modern - Klasik | 20.22 | [18.49 , 21.95] | ~0 | Anlamli |
+
+Modern yontem, Klasik yonteme gore ortalama **20.22 birim** daha yuksek
+performans uretmektedir. Faktor A iki seviyeli oldugundan tek karsilastirma vardir.
+
+**Faktor B (algoritma):**
+
+| Karsilastirma | Fark | %95 GA | p adj | Sonuc |
+|:---|:---:|:---:|:---:|:---|
+| Algo2 - Algo1 | +10.50 | [7.91 , 13.09] | < 0.001 | Algo2 yuksek |
+| Algo3 - Algo1 | +6.67 | [4.07 , 9.26] | < 0.001 | Algo3 yuksek |
+| Algo3 - Algo2 | -3.83 | [-6.43 , -1.24] | 0.0051 | Algo3 dusuk |
+
+Uc ikilinin de guven araligi sifiri icermiyor ve tum p adj degerleri
+0.05'in altinda; dolayisiyla **algoritmalarin ucu de birbirinden anlamli
+sekilde farklidir.** Performans siralamasi: **Algo2 > Algo3 > Algo1**.
+
+**Genel degerlendirme:** Etkilesim anlamsiz oldugu icin bu karsilastirmalar
+ana etkiler uzerinden dogrudan yorumlanabilir. En yuksek performansi
+Modern yontem + Algo2 vermektedir; bu da ANOVA'daki hucre toplamlari
+(Modern + Algo2 = 451) ile tutarlidir.
+
+## Kutu Grafikleri (Dagilim Karsilastirmasi)
+
+```{r boxplot-yontem}
+boxplot(performans ~ yontem, data = veri,
+        col = c("lightblue", "orange"),
+        main = "Yonteme Gore Dagilim",
+        xlab = "Yontem", ylab = "Performans")
+```
+
+### Kutu Grafigi Yorumu (Yontem)
+
+Grafik, Klasik ve Modern yontemlerin performans dagilimlarini
+karsilastirmaktadir. Modern yontemin kutusu butunuyle Klasik yontemin
+uzerinde yer almakta ve iki kutu hicbir noktada ust uste binmemektedir.
+Modern yontemin medyani yaklasik 146, Klasik yontemin medyani ise
+yaklasik 125'tir; bu da iki yontem arasinda belirgin bir konum farki
+oldugunu gosterir.
+
+Modern yontemin kutu genisligi (IQR) Klasik'e gore biraz daha buyuktur,
+yani Modern gruptaki gozlemler arasinda gorece daha fazla degiskenlik
+vardir. Her iki grupta da dagilim simetrik gorunmekte, asiri deger
+(outlier) bulunmamaktadir.
+
+Kutularin ust uste binmemesi, ANOVA'da Faktor A icin elde edilen guclu
+anlamli sonuc (F = 649.49, p < 0.001) ve Tukey testindeki buyuk ortalama
+fark (Modern - Klasik = 20.22) ile tutarlidir.
+
+
+```{r boxplot-algoritma}
+boxplot(performans ~ algoritma, data = veri,
+        col = c("lightgreen", "lightpink", "yellow"),
+        main = "Algoritmaya Gore Dagilim",
+        xlab = "Algoritma", ylab = "Performans")
+```
+
+### Kutu Grafigi Yorumu (Algoritma)
+
+Medyanlara gore Algo2 (~140) en yuksek, Algo1 (~128) en dusuk, Algo3
+(~136) ortada yer almaktadir. Bu siralama (Algo2 > Algo3 > Algo1) Tukey
+sonuclariyla tutarlidir. Kutularin kismen ust uste binmesi, her grubun
+hem Klasik hem Modern gozlemleri icermesinden kaynaklanan grup ici
+degiskenlige baglidir.
+
+
+
+## Sonuc ve Yorum
+
+Analiz sonuclari asagidaki gibi degerlendirilmistir:
+
+**1. Etkilesim (A x B):** F = 2.73 < F_tablo(2,12) = 3.89 oldugu icin
+$H_0$ reddedilemez. Yontem ile algoritma arasinda **anlamli bir etkilesim
+yoktur**. Bu nedenle ana etkiler tek baslarina guvenle yorumlanabilir.
+(Eger etkilesim anlamli olsaydi, ana etkiler tek basina yorumlanamazdi.)
+
+**2. Faktor A (yontem):** F = 649.49 >> F_tablo(1,12) = 4.75 oldugu icin
+$H_0$ **reddedilir**. Yontemin performans uzerinde cok guclu, istatistiksel
+olarak anlamli bir etkisi vardir. Modern yontem (toplam 1302), Klasik yonteme
+(toplam 1120) gore belirgin sekilde daha yuksek performans uretmektedir.
+
+**3. Faktor B (algoritma):** F = 59.78 > F_tablo(2,12) = 3.89 oldugu icin
+$H_0$ **reddedilir**. Algoritmalar arasinda anlamli performans farki vardir.
+Sutun toplamlarina gore Algo2 (836) en yuksek, Algo1 (773) en dusuk ortalama
+performansi vermektedir.
+
+**Genel degerlendirme:** Performansi belirleyen iki ana faktor de anlamlidir;
+etkilesim olmadigindan faktorlerin etkileri birbirinden bagimsiz olarak
+yorumlanabilir. En yuksek performans Modern yontem + Algo2 kombinasyonunda
+(hucre toplami 451) elde edilmistir.
+
+\newpage
+
+# BOLUM 2: Greko-Latin Kare Tasarimi
+
+## Problemin Tanimi (Greko-Latin Kare)
+
+Bu bolumde bir **Greko-Latin Kare (Graeco-Latin Square)** tasarimi analiz
+edilmektedir. Greko-Latin kare, 4x4 bir duzende **dort faktoru ayni anda**
+kontrol etmeye olanak tanir. Her hucrede bir Latin harfi (A, B, C, D) ve
+bir Yunan harfi (alpha, beta, gamma, delta) birlikte bulunur; bu iki harf
+kumesi birbirine ortogonaldir (her Latin-Yunan cifti tam olarak bir kez gelir).
+
+Deney tasarimi (p = 4 seviye, N = p^2 = 16 gozlem):
+
+- **Satir (kullanici/oyuncu):** bloklama faktoru  (i = 1..4)
+- **Sutun (gozluk modeli):** bloklama faktoru  (j = 1..4)
+- **Latin harfi (gozluk motoru):** muamele faktoru  (m = 1..4)
+- **Yunan harfi:** muamele faktoru  (l = 1..4)
+
+Istatistiksel model:
+
+$$
+Y_{ijlm} = \mu + B_i + \alpha_j + \gamma_l + \Delta_m + \varepsilon_{ijlm}
+$$
+
+Burada $\mu$ genel ortalama; $B_i$ satir, $\alpha_j$ sutun, $\gamma_l$ Yunan,
+$\Delta_m$ Latin (motor) etkisi; $\varepsilon_{ijlm}$ rastgele hatadir.
+
+## Hipotezler
+
+Dort etki icin ayri ayri test kurulur (alpha = 0.05):
+
+**Satir (bloklama):**
+$$H_0: B_i = 0 \;\; \forall i \qquad H_1: \text{en az bir } B_i \neq 0$$
+
+**Sutun (bloklama):**
+$$H_0: \alpha_j = 0 \;\; \forall j \qquad H_1: \text{en az bir } \alpha_j \neq 0$$
+
+**Yunan faktoru:**
+$$H_0: \gamma_l = 0 \;\; \forall l \qquad H_1: \text{en az bir } \gamma_l \neq 0$$
+
+**Latin faktoru (motor):**
+$$H_0: \Delta_m = 0 \;\; \forall m \qquad H_1: \text{en az bir } \Delta_m \neq 0$$
+
+Asil ilgilendigimiz muameleler Latin (motor) ve Yunan faktorleridir;
+satir ve sutun bloklama amaciyla modele dahil edilmistir.
+
+## Verinin Girilmesi
+
+Her gozlem; satir, sutun, Latin harfi, Yunan harfi ve yanit degeri ile
+tanimlanir. Faktorler `factor()` ile kategorik degiskene cevrilir.
+
+```{r veri-gl}
+satir  <- factor(c(1,1,1,1, 2,2,2,2, 3,3,3,3, 4,4,4,4))
+sutun  <- factor(c(1,2,3,4, 1,2,3,4, 1,2,3,4, 1,2,3,4))
+
+# Latin harfi = gozluk motoru
+latin  <- factor(c("A","B","C","D",
+                   "B","A","D","C",
+                   "C","D","A","B",
+                   "D","C","B","A"))
+
+# Yunan harfi
+yunan  <- factor(c("alpha","beta","gamma","delta",
+                   "gamma","delta","alpha","beta",
+                   "delta","gamma","beta","alpha",
+                   "beta","alpha","delta","gamma"))
+
+yanit  <- c(88,84,91,86,
+            85,90,87,83,
+            92,89,86,86,
+            87,85,90,91)
+
+veri <- data.frame(satir, sutun, latin, yunan, yanit)
+veri
+```
+
+
+## Tasarimin Gecerliligi (Greko-Latin Kare Kontrolu)
+
+Greko-Latin karenin gecerli olmasi icin: her Latin ve her Yunan harfi, her
+satir ve her sutunda tam 1 kez gelmeli; ayrica her Latin-Yunan cifti tam
+1 kez bulunmalidir (ortogonallik).
+
+```{r kontrol-gl}
+# Latin harfleri satir ve sutunlarda 1 kez mi?
+table(veri$satir, veri$latin)
+table(veri$sutun, veri$latin)
+
+# Yunan harfleri satir ve sutunlarda 1 kez mi?
+table(veri$satir, veri$yunan)
+table(veri$sutun, veri$yunan)
+
+# Ortogonallik: her Latin-Yunan cifti 1 kez mi?
+table(veri$latin, veri$yunan)
+```
+
+
+Tum tablolarda her hucrenin 1 olmasi tasarimin gecerli bir Greko-Latin
+kare oldugunu gosterir.
+
+## Tanimlayici Toplamlar
+
+```{r toplamlar-gl}
+# Satir toplamlari
+data.frame(Satir = levels(veri$satir),
+           Toplam = as.vector(tapply(veri$yanit, veri$satir, sum)))
+
+# Sutun toplamlari
+data.frame(Sutun = levels(veri$sutun),
+           Toplam = as.vector(tapply(veri$yanit, veri$sutun, sum)))
+
+# Latin (motor) toplamlari
+data.frame(Latin = levels(veri$latin),
+           Toplam = as.vector(tapply(veri$yanit, veri$latin, sum)))
+
+# Yunan toplamlari
+data.frame(Yunan = levels(veri$yunan),
+           Toplam = as.vector(tapply(veri$yanit, veri$yunan, sum)))
+
+# Genel toplam ve kareler toplami
+data.frame(Olcum = c("Genel toplam (T..)", "Kareler toplami (sum Y^2)"),
+           Deger = c(sum(veri$yanit), sum(veri$yanit^2)))
+```
+
+
+### Kareler Toplami Hesabi (Elle Cozum)
+
+```
+p = 4 (her faktor seviyesi), N = p^2 = 16
+
+Duzeltme terimi:
+  DT = T..^2 / N = 1400^2 / 16 = 122500
+
+Genel Kareler Toplami:
+  GKT = sum(Y^2) - DT = 122612 - 122500 = 112
+
+Satir (bloklama):
+  SS_satir = (349^2 + 345^2 + 353^2 + 353^2)/4 - DT
+           = 490044/4 - 122500 = 122511 - 122500 = 11
+
+Sutun (bloklama):
+  SS_sutun = (352^2 + 348^2 + 354^2 + 346^2)/4 - DT
+           = 490040/4 - 122500 = 122510 - 122500 = 10
+
+Latin (motor):
+  SS_latin = (355^2 + 345^2 + 351^2 + 349^2)/4 - DT
+           = 490052/4 - 122500 = 122513 - 122500 = 13
+
+Yunan:
+  SS_yunan = (346^2 + 340^2 + 356^2 + 358^2)/4 - DT
+           = 490216/4 - 122500 = 122554 - 122500 = 54
+
+Hata:
+  SS_hata = GKT - SS_satir - SS_sutun - SS_latin - SS_yunan
+          = 112 - 11 - 10 - 13 - 54 = 24
+```
+
+## Normallik Varsayiminin Kontrolu
+
+```{r normallik-gl}
+shapiro.test(veri$yanit)
+```
+
+
+### Normallik Yorumu
+
+p > 0.05 oldugunda H0 (yanitlar normal dagilmistir) reddedilemez ve
+normallik varsayimi saglanmis olur. Not: Greko-Latin karede her muamele
+seviyesi yalnizca dort kez tekrarlandigindan ve toplam gozlem sayisi 16
+ile sinirli oldugundan testin gucu dusuktur; bu nedenle yuksek p-degeri
+normalligin kesin kaniti degil, sapmayi reddedecek delil bulunamadigi
+seklinde okunur. ANOVA F testi kucuk sapmalara karsi dayaniklidir.
+
+## ANOVA: Greko-Latin Kare Modeli
+
+Modelde dort etki de toplamsal (additif) olarak yer alir; Greko-Latin
+karede etkilesim terimi tahmin edilemez (yeterli serbestlik derecesi yoktur).
+
+```{r anova-gl}
+model <- aov(yanit ~ satir + sutun + latin + yunan, data = veri)
+summary(model)
+```
+
+
+### ANOVA Tablosu (Elle Cozum ile Karsilastirma)
+
+```
+Kaynak          SD   KT     KO       F      F_tablo(0.05)   Karar
+---------------------------------------------------------------------
+satir (blok)     3   11     3.667   0.458   9.28            H0 RED DEGIL
+sutun (blok)     3   10     3.333   0.417   9.28            H0 RED DEGIL
+latin (motor)    3   13     4.333   0.542   9.28            H0 RED DEGIL
+yunan            3   54    18.000   2.250   9.28            H0 RED DEGIL
+Residuals        3   24     8.000
+Total           15  112
+
+MS_hata = 24/3 = 8.000
+F_satir = 3.667 / 8 = 0.458
+F_sutun = 3.333 / 8 = 0.417
+F_latin = 4.333 / 8 = 0.542
+F_yunan = 18.00 / 8 = 2.250
+```
+
+### ANOVA Yorumu
+
+Tum F degerleri F_tablo(3,3) = 9.28 esik degerinin altinda ve tum
+p-degerleri 0.05'ten buyuktur; dolayisiyla **hicbir faktor icin H0
+reddedilemez.**
+
+**Satir (kullanici):** F = 0.458, p = 0.73 -> Kullanicilar arasinda
+anlamli fark yoktur. (Bloklama faktoru, anlamsiz cikmasi beklenir.)
+
+**Sutun (gozluk modeli):** F = 0.417, p = 0.75 -> Gozluk modelleri
+arasinda anlamli fark yoktur. (Bloklama faktoru.)
+
+**Latin (motor):** F = 0.542, p = 0.69 -> Gozluk motorlari arasinda
+anlamli performans farki yoktur.
+
+**Yunan faktoru:** F = 2.250, p = 0.26 -> En yuksek F degerine sahip
+olmasina ragmen yine de anlamli degildir.
+
+**Genel degerlendirme:** Hicbir faktor yanit degiskeni uzerinde anlamli
+bir etki gostermemektedir. Onemli bir nokta: Greko-Latin karede dort
+faktor cok sayida serbestlik derecesi tukettiginden hata serbestlik
+derecesi yalnizca 3'e duser. Bu, F testinin gucunu ciddi sekilde
+azaltir ve F_tablo esigini (9.28) yukseltir. Bu nedenle "anlamli etki
+yok" sonucu, kismen tasarimin kucuk olmasindan kaynaklanan dusuk istatistiksel
+guc ile iliskilidir.
+
+## Kutu Grafikleri (Dagilim Karsilastirmasi)
+
+```{r boxplot-latin}
+boxplot(yanit ~ latin, data = veri,
+        col = c("lightblue", "lightgreen", "lightpink", "orange"),
+        main = "Latin (Motor) Faktorune Gore Dagilim",
+        xlab = "Motor", ylab = "Yanit")
+```
+
+
+```{r boxplot-yunan}
+boxplot(yanit ~ yunan, data = veri,
+        col = c("lightblue", "lightgreen", "lightpink", "orange"),
+        main = "Yunan Faktorune Gore Dagilim",
+        xlab = "Yunan", ylab = "Yanit")
+```
+### Kutu Grafikleri Yorumu
+
+**Latin (motor) faktoru:** Dort grubun medyanlari birbirine yakindir
+(A ~89, B ~85.5, C ~88, D ~87) ve kutular genis olcude ust uste binmektedir.
+Ozellikle C grubunun kutusu cok genistir, yani bu motorda gozlemler arasi
+degiskenlik yuksektir. Kutularin bu sekilde ortusmesi, ANOVA'da Latin (motor)
+faktorunun anlamsiz cikmasiyla (F = 0.542, p = 0.69) uyumludur; motorlar
+performans acisindan birbirinden ayrismamaktadir.
+
+**Yunan faktoru:** Gruplar arasinda hafif bir konum farki gorulmektedir;
+delta ve gamma (~90) medyanlari beta'dan (~85) bir miktar yuksektir. Yine de
+kutular buyuk olcude ust uste binmekte ve grup ici degiskenlik yuksektir.
+Bu kismi ayrisma Yunan faktorunun digerlerine gore en buyuk F degerine sahip
+olmasini (F = 2.250) yansitsa da, ortusme nedeniyle fark anlamlilik esigine
+ulasamamistir (p = 0.26).
+
+
+## Sonuc ve Yorum
+
+Greko-Latin kare tasarimi ile dort faktor (kullanici, gozluk modeli,
+motor ve Yunan faktoru) ayni anda, yalnizca 16 gozlem kullanilarak
+incelenmistir.
+
+**1. Bloklama faktorleri (satir ve sutun):** Her ikisi de anlamsizdir
+(p > 0.05). Bloklama faktorlerinin anlamsiz cikmasi olagandir; bunlar
+deney faktoru degil, kontrol amacli eklenen bloklardir.
+
+**2. Latin (motor) faktoru:** F = 0.542, p = 0.69 -> anlamsiz. Gozluk
+motorlari performans acisindan birbirinden ayrismamaktadir.
+
+**3. Yunan faktoru:** F = 2.250, p = 0.26 -> anlamsiz. Dort faktor
+icinde en buyuk F degerine sahip olsa da anlamlilik esigine ulasamamistir.
+
+**Genel sonuc:** Incelenen faktorlerin hicbiri yanit degiskeni uzerinde
+istatistiksel olarak anlamli bir etki gostermemistir. Bu sonuc
+degerlendirilirken, Greko-Latin kare tasariminin yalnizca 3 hata
+serbestlik derecesi birakmasi ve buna bagli dusuk istatistiksel guc
+goz onunde bulundurulmalidir.
+
+\newpage
+
+# BOLUM 3: Latin Kare Tasarimi (5x5)
+
+## Problemin Tanimi
+
+Bu bolumde bir **Latin Kare (Latin Square)** tasarimi analiz edilmektedir.
+Latin kare, iki bloklama faktorunu (satir ve sutun) ayni anda kontrol ederek
+tek bir muamele faktorunun etkisini incelemeye olanak tanir. Her muamele
+(Latin harfi) her satirda ve her sutunda tam olarak bir kez yer alir.
+
+Deney tasarimi (p = 5 seviye, N = p^2 = 25 gozlem):
+
+- **Satir:** bloklama faktoru  (i = 1..5)
+- **Sutun:** bloklama faktoru  (j = 1..5)
+- **Latin harfi (muamele):** A, B, C, D, E  (l = 1..5)
+
+Istatistiksel model:
+
+$$
+Y_{ijl} = \mu + B_i + \alpha_j + \gamma_l + \varepsilon_{ijl}
+$$
+
+Burada $\mu$ genel ortalama; $B_i$ satir, $\alpha_j$ sutun, $\gamma_l$ Latin
+(muamele) etkisi; $\varepsilon_{ijl}$ rastgele hatadir. Latin karede
+etkilesim terimi tahmin edilemez (yeterli serbestlik derecesi yoktur);
+model tamamen toplamsaldir.
+
+## Hipotezler
+
+Uc etki icin ayri ayri test kurulur (alpha = 0.05):
+
+**Satir (bloklama):**
+$$H_0: B_i = 0 \;\; \forall i \qquad H_1: \text{en az bir } B_i \neq 0$$
+
+**Sutun (bloklama):**
+$$H_0: \alpha_j = 0 \;\; \forall j \qquad H_1: \text{en az bir } \alpha_j \neq 0$$
+
+**Latin (muamele):**
+$$H_0: \gamma_l = 0 \;\; \forall l \qquad H_1: \text{en az bir } \gamma_l \neq 0$$
+
+Asil ilgilendigimiz muamele Latin faktorudur; satir ve sutun bloklama
+amaciyla modele dahil edilmistir.
+
+## Verinin Girilmesi
+
+Her gozlem; satir, sutun, Latin harfi ve yanit degeri ile tanimlanir.
+
+```{r veri-lk}
+satir <- factor(c(1,1,1,1,1, 2,2,2,2,2, 3,3,3,3,3, 4,4,4,4,4, 5,5,5,5,5))
+sutun <- factor(c(1,2,3,4,5, 1,2,3,4,5, 1,2,3,4,5, 1,2,3,4,5, 1,2,3,4,5))
+
+latin <- factor(c("A","B","C","D","E",
+                  "B","C","D","E","A",
+                  "C","D","E","A","B",
+                  "D","E","A","B","C",
+                  "E","A","B","C","D"))
+
+yanit <- c(82,78,85,80,88,
+           79,84,83,87,81,
+           85,89,90,84,86,
+           88,86,82,85,87,
+           90,91,86,88,92)
+
+veri <- data.frame(satir, sutun, latin, yanit)
+veri
+```
+
+## Latin Kare Kontrolu
+
+Latin karenin gecerli olmasi icin her Latin harfi, her satirda ve her
+sutunda tam olarak bir kez gelmelidir.
+
+```{r kontrol-lk}
+# Her harf her satirda 1 kez mi?
+table(veri$satir, veri$latin)
+
+# Her harf her sutunda 1 kez mi?
+table(veri$sutun, veri$latin)
+```
+
+Tum tablolarda her hucrenin 1 olmasi tasarimin gecerli bir Latin kare
+oldugunu gosterir.
+
+## Tanimlayici Toplamlar
+
+```{r toplamlar-lk}
+# Satir toplamlari
+data.frame(Satir = levels(veri$satir),
+           Toplam = as.vector(tapply(veri$yanit, veri$satir, sum)))
+
+# Sutun toplamlari
+data.frame(Sutun = levels(veri$sutun),
+           Toplam = as.vector(tapply(veri$yanit, veri$sutun, sum)))
+
+# Latin (muamele) toplamlari
+data.frame(Latin = levels(veri$latin),
+           Toplam = as.vector(tapply(veri$yanit, veri$latin, sum)))
+
+# Genel toplam ve kareler toplami
+data.frame(Olcum = c("Genel toplam (T..)", "Kareler toplami (sum Y^2)"),
+           Deger = c(sum(veri$yanit), sum(veri$yanit^2)))
+```
+
+### Kareler Toplami Hesabi (Elle Cozum)
+
+```
+p = 5 (her faktor seviyesi), N = p^2 = 25
+
+Duzeltme terimi:
+  DT = T..^2 / N = 2136^2 / 25 = 182499.84
+
+Genel Kareler Toplami:
+  GKT = sum(Y^2) - DT = 182834 - 182499.84 = 334.16
+
+Satir (bloklama):
+  SS_satir = (413^2 + 414^2 + 434^2 + 428^2 + 447^2)/5 - DT
+           = 162.96
+
+Sutun (bloklama):
+  SS_sutun = (424^2 + 428^2 + 426^2 + 424^2 + 434^2)/5 - DT
+           = 13.76
+
+Latin (muamele):
+  SS_latin = (420^2 + 414^2 + 429^2 + 432^2 + 441^2)/5 - DT
+           = 88.56
+
+Hata:
+  SS_hata = GKT - SS_satir - SS_sutun - SS_latin
+          = 334.16 - 162.96 - 13.76 - 88.56 = 68.88
+```
+
+## Normallik Varsayiminin Kontrolu
+
+```{r normallik-lk}
+shapiro.test(veri$yanit)
+```
+
+### Normallik Yorumu
+
+Shapiro-Wilk testinde W = 0.9794, p = 0.8729 > 0.05 oldugundan H0
+(yanitlar normal dagilimdan gelir) reddedilemez; normallik varsayimi
+saglanmistir. p-degerinin yuksek olmasi, gozlemlerin normal dagilimdan
+anlamli bir sapma gostermedigini ifade eder. Boylece ANOVA'nin hata
+teriminin normalligi varsayimi karsilanmis olur.
+
+## ANOVA: Latin Kare Modeli
+
+```{r anova-lk}
+model <- aov(yanit ~ satir + sutun + latin, data = veri)
+summary(model)
+```
+
+### ANOVA Tablosu (Elle Cozum ile Karsilastirma)
+
+```
+Kaynak          SD   KT       KO       F       F_tablo(0.05)   Karar
+----------------------------------------------------------------------
+satir (blok)     4   162.96   40.740   7.098   3.26            H0 RED
+sutun (blok)     4    13.76    3.440   0.599   3.26            H0 RED DEGIL
+latin (muamele)  4    88.56   22.140   3.857   3.26            H0 RED
+Residuals       12    68.88    5.740
+Total           24   334.16
+
+MS_hata = 68.88/12 = 5.740
+F_satir = 40.740 / 5.740 = 7.098
+F_sutun =  3.440 / 5.740 = 0.599
+F_latin = 22.140 / 5.740 = 3.857
+```
+
+### ANOVA Yorumu
+ Sonuclar asagidaki gibi degerlendirilir (alpha = 0.05):
+
+**Satir (bloklama):** F = 7.098, p = 0.00359 < 0.05 -> H0 RED. Satirlar
+arasinda anlamli fark vardir. Bir bloklama faktorunun anlamli cikmasi,
+bloklamanin yerinde yapildigini ve hata varyansini azaltarak modelin
+duyarliligini artirdigini gosterir.
+
+**Sutun (bloklama):** F = 0.599, p = 0.67025 > 0.05 -> H0 reddedilemez.
+Sutunlar arasinda anlamli fark yoktur. Bu bloklama faktorunun yanit
+uzerinde belirgin bir etkisi bulunmamaktadir.
+
+**Latin (muamele):** F = 3.857, p = 0.03068 < 0.05 -> H0 RED. Latin
+harfleri (muameleler) arasinda istatistiksel olarak anlamli bir performans
+farki vardir. Asil ilgilendigimiz muamele faktoru anlamli ciktigindan,
+hangi harflerin birbirinden farkli oldugu TukeyHSD ile incelenir.
+
+**Genel degerlendirme:** Iki bloklama yonunden biri (satir) ve asil
+muamele faktoru (Latin) anlamlidir; sutun bloklamasi anlamsizdir. Latin
+faktorunun anlamliligi, tasarimin amacina ulastigini gosterir. Satir
+bloklamasinin anlamli olmasi, satir yonunde gercek bir degiskenlik
+bulundugunu ve bunun modele dahil edilerek kontrol altina alinmasinin
+dogru oldugunu ortaya koyar.
+
+## Coklu Karsilastirmalar (TukeyHSD)
+
+Latin faktoru anlamli ciktigi icin hangi harflerin birbirinden
+farkli oldugunu Tukey HSD ile inceleriz.
+
+```{r tukey-lk}
+TukeyHSD(model, "latin")
+```
+
+### Tukey HSD Yorumu
+
+TukeyHSD, Latin faktoru icindeki on harf ikilisini ailesel hata oranini
+(%5) koruyarak karsilastirir. Bir ikili icin guven araligi sifiri
+icermiyorsa ve p adj < 0.05 ise fark anlamlidir.
+
+On karsilastirma icinde yalnizca **E-B** ikilisi anlamli cikmistir:
+fark = 5.4, %95 GA = [0.57 , 10.23], p adj = 0.0263. Guven araligi sifiri
+icermedigi ve p adj < 0.05 oldugu icin E harfi, B harfinden anlamli sekilde
+yuksek yanit uretmektedir.
+
+Diger dokuz ikilinin tamaminda guven araligi sifiri icermekte ve p adj
+degerleri 0.05'in uzerinde kalmaktadir; dolayisiyla bu ikililer arasinda
+anlamli fark yoktur. Ozellikle E-A ikilisi (p adj = 0.10) anlamliliga
+yakin olsa da esigi gecememistir.
+
+**Degerlendirme:** ANOVA Latin faktorunu genel olarak anlamli bulmustur
+(p = 0.031); Tukey bu farkin esas olarak en dusuk ortalamali B harfi ile
+en yuksek ortalamali E harfi arasindaki ayrimdan kaynaklandigini
+gostermektedir. Latin toplamlarina gore siralama B (414) < A (420) <
+C (429) < D (432) < E (441) seklindedir; istatistiksel olarak ayrisan tek
+ucnokta B ile E'dir.
+
+## Kutu Grafikleri (Dagilim Karsilastirmasi)
+
+```{r boxplot-latin-lk}
+boxplot(yanit ~ latin, data = veri,
+        col = c("lightblue", "lightgreen", "lightpink", "orange", "yellow"),
+        main = "Latin (Muamele) Faktorune Gore Dagilim",
+        xlab = "Latin Harfi", ylab = "Yanit")
+```
+
+```{r boxplot-satir-lk}
+boxplot(yanit ~ satir, data = veri,
+        col = c("lightblue", "lightgreen", "lightpink", "orange", "yellow"),
+        main = "Satira Gore Dagilim",
+        xlab = "Satir", ylab = "Yanit")
+```
+
+### Kutu Grafigi Yorumu
+
+**Latin (muamele) faktoru:** Gruplar soldan saga yukselen bir egilim
+gostermektedir; A en dusuk medyana (~82), E en yuksek medyana (~88)
+sahiptir. B ve D gruplarinin kutulari oldukca genistir, yani bu harflerde
+gozlemler arasi degiskenlik yuksektir. A grubunun ust kisminda bir aykiri
+deger (~91) gozlenmektedir. E ve B arasindaki belirgin konum farki,
+TukeyHSD'de yalnizca E-B ikilisinin anlamli cikmasiyla tutarlidir.
+
+**Satir faktoru:** Satirlar arasinda acik bir yukselen egilim vardir:
+satir 1 ve 2 dusuk (~82), satir 3 ve 4 orta (~86), satir 5 en yuksek
+(~90) medyana sahiptir. Bu belirgin ayrisma, ANOVA'da satir faktorunun
+guclu anlamli cikmasini (F = 7.098, p = 0.0036) gorsel olarak
+desteklemekte ve bloklamanin satir yonunde yerinde yapildigini
+gostermektedir.
+
+## Sonuc ve Yorum
+
+5x5 Latin kare tasarimi ile iki bloklama yonu (satir ve sutun) kontrol
+altina alinarak tek bir muamele faktorunun (Latin harfi) etkisi, 25 gozlem
+kullanilarak incelenmistir.
+
+**1. Satir (bloklama):** F = 7.098, p = 0.0036 -> anlamli. Satirlar
+arasinda gercek bir degiskenlik vardir. Bir bloklama faktorunun anlamli
+cikmasi, bloklamanin yerinde yapildigini ve hata varyansini azaltarak
+modelin duyarliligini artirdigini gosterir.
+
+**2. Sutun (bloklama):** F = 0.599, p = 0.67 -> anlamsiz. Sutunlar
+arasinda belirgin bir fark yoktur; bu bloklama yonunun yanit uzerinde
+etkisi bulunmamaktadir.
+
+**3. Latin (muamele):** F = 3.857, p = 0.031 -> anlamli. Asil ilgilendigimiz
+muamele faktoru anlamlidir; Latin harfleri arasinda performans farki
+vardir. TukeyHSD'ye gore bu fark esas olarak en dusuk ortalamali B (414)
+ile en yuksek ortalamali E (441) harfleri arasindaki ayrimdan kaynaklanmakta,
+yalnizca E-B ikilisi istatistiksel olarak anlamli cikmaktadir.
+
+**Genel sonuc:** Tasarim amacina ulasmistir; muamele faktoru (Latin)
+anlamli bir etki gostermistir. Iki bloklama yonunden satir anlamli, sutun
+anlamsizdir. Satir bloklamasinin anlamli olmasi, bu yonde gercek bir
+degiskenligin bulundugunu ve modele dahil edilerek kontrol altina
+alinmasinin dogru oldugunu ortaya koyar. Sutun bloklamasi anlamsiz olsa
+da modelde tutulmasi tasarim butunlugu acisindan gereklidir. Latin
+faktorunun en yuksek seviyesi E, en dusuk seviyesi B olarak one cikmaktadir.
+
+\newpage
+
+# BOLUM 4: Iki Faktorlu Faktoriyel Deney (Tablo 1)
+
+## Problemin Tanimi
+
+Bu bolumde iki faktorlu, tekrarli (replikasyonlu) bir faktoriyel deney
+analiz edilmektedir. Yanit degiskeninin iki faktore (A ve B) ve bu iki
+faktorun etkilesimine gore degisip degismedigi incelenmektedir.
+
+Deney tasarimi:
+
+- **Faktor A:** 3 seviye -> A1, A2, A3  (i = 1, 2, 3)
+- **Faktor B:** 3 seviye -> B1, B2, B3  (j = 1, 2, 3)
+- **Tekrar sayisi:** n = 4  (her hucrede 4 gozlem)
+- **Toplam gozlem:** N = a * b * n = 3 * 3 * 4 = 36
+
+Istatistiksel model (etkilesimli iki yonlu ANOVA):
+
+$$
+Y_{ijl} = \mu + \alpha_i + \beta_j + (\alpha\beta)_{ij} + \varepsilon_{(ij)l}
+$$
+
+Burada $\mu$ genel ortalama; $\alpha_i$ Faktor A, $\beta_j$ Faktor B ana
+etkisi; $(\alpha\beta)_{ij}$ A x B etkilesimi; $\varepsilon_{(ij)l}$ hatadir.
+
+## Hipotezler
+
+**Faktor A ana etkisi:**
+$$H_0: \alpha_i = 0 \;\; \forall i \qquad H_1: \text{en az bir } \alpha_i \neq 0$$
+
+**Faktor B ana etkisi:**
+$$H_0: \beta_j = 0 \;\; \forall j \qquad H_1: \text{en az bir } \beta_j \neq 0$$
+
+**A x B etkilesimi:**
+$$H_0: (\alpha\beta)_{ij} = 0 \;\; \forall i,j \qquad H_1: \text{en az bir } (\alpha\beta)_{ij} \neq 0$$
+
+## Verinin Girilmesi
+
+Veriler her hucrenin 4 tekrarini iceren long format olarak girilmistir.
+
+```{r veri-f2}
+# Faktor B: her seviye 12 gozlem (3 A seviyesi x 4 tekrar)
+B_faktor <- factor(rep(c("B1","B2","B3"), each = 12))
+
+# Faktor A: her B seviyesi icinde A1,A2,A3 sirayla 4'er tekrar
+A_faktor <- factor(rep(rep(c("A1","A2","A3"), each = 4), times = 3))
+
+yanit <- c(
+  40,41,39,40,  55,56,54,55,  70,69,71,70,   # B1: A1, A2, A3
+  50,49,51,50,  65,66,64,65,  80,79,81,80,   # B2: A1, A2, A3
+  60,59,61,60,  75,74,76,75,  90,91,89,90    # B3: A1, A2, A3
+)
+
+veri <- data.frame(A = A_faktor, B = B_faktor, yanit)
+veri
+```
+
+## Tanimlayici Toplamlar
+
+```{r toplamlar-f2}
+# Hucre toplamlari (A x B)
+as.data.frame.matrix(tapply(veri$yanit, list(veri$B, veri$A), sum))
+
+# Faktor A toplamlari
+data.frame(A = levels(veri$A),
+           Toplam = as.vector(tapply(veri$yanit, veri$A, sum)))
+
+# Faktor B toplamlari
+data.frame(B = levels(veri$B),
+           Toplam = as.vector(tapply(veri$yanit, veri$B, sum)))
+
+# Genel toplam ve kareler toplami
+data.frame(Olcum = c("Genel toplam (T..)", "Kareler toplami (sum Y^2)"),
+           Deger = c(sum(veri$yanit), sum(veri$yanit^2)))
+```
+
+### Kareler Toplami Hesabi (Elle Cozum)
+
+```
+a = 3, b = 3, n = 4, N = 36
+
+Duzeltme terimi:
+  DT = T..^2 / N = 2340^2 / 36 = 152100
+
+Genel Kareler Toplami:
+  GKT = sum(Y^2) - DT = 159918 - 152100 = 7818
+
+Faktor A:
+  SS_A = (600^2 + 780^2 + 960^2)/(b*n) - DT
+       = (600^2 + 780^2 + 960^2)/12 - 152100 = 5400
+
+Faktor B:
+  SS_B = (660^2 + 780^2 + 900^2)/(a*n) - DT
+       = (660^2 + 780^2 + 900^2)/12 - 152100 = 2400
+
+Hucreler (alt-toplam):
+  SS_hucreler = (160^2+220^2+280^2+200^2+260^2+320^2+240^2+300^2+360^2)/n - DT
+              = 7800
+
+Etkilesim:
+  SS_AB = SS_hucreler - SS_A - SS_B = 7800 - 5400 - 2400 = 0
+
+Hata:
+  SS_hata = GKT - SS_hucreler = 7818 - 7800 = 18
+```
+
+## Normallik Varsayiminin Kontrolu
+
+```{r normallik-f2}
+by(veri$yanit, list(veri$A, veri$B), shapiro.test)
+```
+
+### Normallik Yorumu
+
+Dokuz hucrenin tamaminda Shapiro-Wilk test istatistigi ayni cikmistir
+(W = 0.94466, p = 0.683). Bu durum, her hucredeki dort gozlemin ayni
+sapma desenine sahip olmasindan kaynaklanir; ornegin bir hucredeki
+(40, 41, 39, 40) deseni ile digerindeki (55, 56, 54, 55) deseni ayni
+sekle sahiptir, dolayisiyla normallik istatistigi de aynidir.
+
+Tum hucrelerde p = 0.683 > 0.05 oldugundan her hucre icin H0 (gozlemler
+normal dagilimdan gelir) reddedilemez; normallik varsayimi hucre bazinda
+saglanmistir. Ancak her hucrede yalnizca n = 4 gozlem bulundugundan
+Shapiro-Wilk testinin gucu dusuktur; yuksek p-degeri normalligin kesin
+kaniti degil, sapmayi reddedecek delil bulunamadigi seklinde okunur.
+ANOVA F testi normallik ihlallerine karsi dayanikli oldugundan, sonuclar
+modelin gecerliligi acisindan sorun olusturmaz.
+
+## ANOVA: Etkilesimli Tam Faktoriyel Model
+
+```{r anova-f2}
+model <- aov(yanit ~ A * B, data = veri)
+summary(model)
+```
+
+### ANOVA Tablosu (Elle Cozum ile Karsilastirma)
+
+```
+Kaynak     SD   KT       KO        F          F_tablo(0.05)   Karar
+---------------------------------------------------------------------
+A           2   5400     2700.0    4050.0     3.35            H0 RED
+B           2   2400     1200.0    1800.0     3.35            H0 RED
+A:B         4      0        0.0       0.0     2.73            H0 RED DEGIL
+Residuals  27     18        0.667
+Total      35   7818
+
+MS_hata = 18/27 = 0.6667
+F_A  = 2700 / 0.6667 = 4050
+F_B  = 1200 / 0.6667 = 1800
+F_AB =    0 / 0.6667 = 0
+```
+
+### ANOVA Yorumu
+
+R ciktisindaki F ve p-degerleri elle hesaplanan degerlerle birebir
+ortusmektedir. Sonuclar asagidaki gibi degerlendirilir (alpha = 0.05):
+
+**Etkilesim (A:B):** F = 0, p = 1 > 0.05 -> H0 reddedilemez. Faktor A
+ile Faktor B arasinda hicbir etkilesim yoktur. Etkilesim kareler toplaminin
+tam olarak sifir cikmasi, verinin kusursuz toplamsal (additif) bir yapida
+oldugunu gosterir: her hucrenin ortalamasi, ilgili satir ve sutun
+etkilerinin toplamina esittir. Etkilesim anlamsiz oldugu icin ana etkiler
+tek baslarina guvenle yorumlanabilir.
+
+**Faktor A:** F = 4050, p < 2e-16 < 0.05 -> H0 RED. Faktor A'nin yanit
+uzerinde son derece guclu ve anlamli bir etkisi vardir. A toplamlarina
+gore A1 (600) < A2 (780) < A3 (960) seklinde duzenli artan bir egilim
+gozlenmektedir.
+
+**Faktor B:** F = 1800, p < 2e-16 < 0.05 -> H0 RED. Faktor B'nin de
+yanit uzerinde guclu ve anlamli bir etkisi vardir. B toplamlarina gore
+B1 (660) < B2 (780) < B3 (900) seklinde duzenli artan bir egilim vardir.
+
+**Genel degerlendirme:** Her iki ana faktor de yuksek duzeyde anlamlidir
+ve etkilesim tamamen yoktur; dolayisiyla iki faktorun etkileri birbirinden
+bagimsiz ve toplamsaldir. Hata kareler ortalamasinin cok kucuk olmasi
+(MS_hata = 0.667), hucre ici degiskenligin son derece dusuk oldugunu ve
+modelin yaniti neredeyse tamamen acikladigini gosterir. Hem A hem B icin
+en yuksek seviye (A3 ve B3) en yuksek yaniti vermektedir.
+
+## Etkilesim Grafigi
+
+```{r interaction-plot-f2}
+interaction.plot(veri$A, veri$B, veri$yanit,
+                 type = "b", pch = 19, col = c("blue", "red", "darkgreen"),
+                 main = "Etkilesim Grafigi: A x B",
+                 xlab = "Faktor A", ylab = "Ortalama Yanit",
+                 trace.label = "Faktor B")
+```
+
+### Grafik Yorumu
+
+Etkilesim grafiginde uc B seviyesine ait cizgiler (B1, B2, B3) birbirine
+tam paraleldir ve hepsi A1'den A3'e dogru ayni egimle yukselmektedir.
+Cizgiler arasindaki dikey mesafe her A seviyesinde sabit kalmakta, hicbir
+noktada kesisme ya da yakinlasma gozlenmemektedir.
+
+Bu paralellik, etkilesimin olmadigini (SS_AB = 0,
+F = 0, p = 1) gorsel olarak dogrular. Cizgilerin tamaminin yukari yonlu
+olmasi Faktor A'nin guclu ana etkisini; cizgilerin birbirinden esit
+araliklarla ayrismasi ise Faktor B'nin guclu ana etkisini gostermektedir.
+Cizgiler paralel oldugu icin ders kuralina gore ana etkiler tek baslarina
+guvenle yorumlanabilir.
+
+## Coklu Karsilastirmalar (TukeyHSD)
+
+Etkilesim anlamsiz oldugu icin ana etkiler dogrudan yorumlanabilir.
+
+```{r tukey-f2}
+TukeyHSD(model, c("A", "B"))
+```
+### Tukey HSD Yorumu
+
+TukeyHSD, anlamli ana etkilerde harf ikililerini ailesel hata oranini
+(%5) koruyarak karsilastirir. Bir ikili icin guven araligi sifiri
+icermiyorsa ve p adj < 0.05 ise fark anlamlidir.
+
+**Faktor A:** Uc ikilinin de p adj degeri 0 ve hicbir guven araligi sifiri
+icermemektedir; A'nin uc seviyesi de birbirinden anlamli sekilde farklidir.
+- A2 - A1 = 15, GA = [14.17 , 15.83]
+- A3 - A1 = 30, GA = [29.17 , 30.83]
+- A3 - A2 = 15, GA = [14.17 , 15.83]
+
+**Faktor B:** B'nin de uc seviyesi birbirinden anlamli sekilde farklidir
+(tum p adj = 0).
+- B2 - B1 = 10, GA = [9.17 , 10.83]
+- B3 - B1 = 20, GA = [19.17 , 20.83]
+- B3 - B2 = 10, GA = [9.17 , 10.83]
+
+**Degerlendirme:** Hem A hem B faktorunde tum seviye ciftleri ayrismaktadir.
+Farklarin esit araliklarla artmasi (A'da 15'er, B'de 10'ar birim) seviyeler
+boyunca duzenli bir artisi gosterir. Dar guven araliklari hata varyansinin
+kucuk olmasindan kaynaklanir.
+
+## Kutu Grafikleri (Dagilim Karsilastirmasi)
+
+```{r boxplot-A-f2}
+boxplot(yanit ~ A, data = veri,
+        col = c("lightblue", "lightgreen", "orange"),
+        main = "Faktor A'ya Gore Dagilim",
+        xlab = "Faktor A", ylab = "Yanit")
+```
+
+```{r boxplot-B-f2}
+boxplot(yanit ~ B, data = veri,
+        col = c("lightblue", "lightgreen", "orange"),
+        main = "Faktor B'ye Gore Dagilim",
+        xlab = "Faktor B", ylab = "Yanit")
+```
+
+### Kutu Grafigi Yorumu
+
+**Faktor A:** Uc seviye arasinda yukselen bir egilim vardir. A1 medyani
+~50, A2 ~65, A3 ~80'dir ve kutular birbiriyle pek ust uste binmemektedir.
+Bu, ANOVA'da Faktor A'nin anlamli cikmasiyla tutarlidir. Her kutunun genis
+olmasi, A seviyesinin B'nin uc seviyesini birlestirmesinden kaynaklanir.
+
+**Faktor B:** B'de de yukselen bir egilim gozlenir; medyanlar B1 ~55,
+B2 ~65, B3 ~75'tir. Kutular kismen ust uste binse de medyanlar duzenli
+artmaktadir. Bu, B'nin anlamli ana etkisiyle uyumludur. B kutularinin
+A'ya gore biraz daha fazla ortusmesi, B'nin etki buyuklugunun A'dan
+kucuk olmasiyla iliskilidir (B toplam farki 240, A toplam farki 360).
+
+## Sonuc ve Yorum
+
+Iki faktorlu tekrarli faktoriyel deney ile iki faktorun (A ve B) ve
+etkilesimlerinin yanit uzerindeki etkisi, 36 gozlem kullanilarak
+incelenmistir.
+
+**1. Etkilesim (A:B):** F = 0, p = 1 -> anlamsiz. Etkilesim kareler
+toplami tam olarak sifirdir; veri kusursuz toplamsal (additif) yapidadir.
+Etkilesim olmadigindan ana etkiler tek baslarina yorumlanabilir.
+
+**2. Faktor A:** F = 4050, p < 0.001 -> anlamli. A toplamlarina gore
+A1 (600) < A2 (780) < A3 (960) seklinde duzenli artan bir egilim vardir.
+TukeyHSD'ye gore A'nin uc seviyesi de birbirinden anlamli sekilde
+farklidir.
+
+**3. Faktor B:** F = 1800, p < 0.001 -> anlamli. B toplamlarina gore
+B1 (660) < B2 (780) < B3 (900) seklinde duzenli artan bir egilim vardir.
+B'nin de uc seviyesi birbirinden anlamlidir.
+
+**Genel sonuc:** Her iki ana faktor de anlamlidir ve etkilesim yoktur;
+faktorlerin etkileri birbirinden bagimsiz ve toplamsaldir. Hata kareler
+ortalamasinin cok kucuk olmasi (MS_hata = 0.667) hucre ici degiskenligin
+dusuk oldugunu gosterir. En yuksek yanit A3 ve B3 seviyelerinde elde
+edilmektedir.
+
+\newpage
+
+# BOLUM 5: Greko-Latin Kare Tasarimi (Tablo 2)
+
+## Problemin Tanimi
+
+Bu bolumde bir **Greko-Latin Kare (Graeco-Latin Square)** tasarimi analiz
+edilmektedir. 4x4 bir duzende dort faktor ayni anda kontrol edilir. Her
+hucrede bir Latin harfi (A, B, C, D) ve bir Yunan harfi (alpha, beta, gamma,
+delta) birlikte bulunur; bu iki harf kumesi birbirine ortogonaldir (her
+Latin-Yunan cifti tam olarak bir kez gelir).
+
+Deney tasarimi (p = 4 seviye, N = p^2 = 16 gozlem):
+
+- **Satir:** bloklama faktoru  (i = 1..4)
+- **Sutun:** bloklama faktoru  (j = 1..4)
+- **Latin harfi:** muamele faktoru  (m = 1..4)
+- **Yunan harfi:** muamele faktoru  (l = 1..4)
+
+Istatistiksel model:
+
+$$
+Y_{ijlm} = \mu + B_i + \alpha_j + \gamma_l + \Delta_m + \varepsilon_{ijlm}
+$$
+
+Burada $\mu$ genel ortalama; $B_i$ satir, $\alpha_j$ sutun, $\gamma_l$ Yunan,
+$\Delta_m$ Latin etkisi; $\varepsilon_{ijlm}$ rastgele hatadir.
+
+## Hipotezler
+
+Dort etki icin ayri ayri test kurulur (alpha = 0.05):
+
+**Satir (bloklama):**
+$$H_0: B_i = 0 \;\; \forall i \qquad H_1: \text{en az bir } B_i \neq 0$$
+
+**Sutun (bloklama):**
+$$H_0: \alpha_j = 0 \;\; \forall j \qquad H_1: \text{en az bir } \alpha_j \neq 0$$
+
+**Yunan faktoru:**
+$$H_0: \gamma_l = 0 \;\; \forall l \qquad H_1: \text{en az bir } \gamma_l \neq 0$$
+
+**Latin faktoru:**
+$$H_0: \Delta_m = 0 \;\; \forall m \qquad H_1: \text{en az bir } \Delta_m \neq 0$$
+
+## Verinin Girilmesi
+
+```{r veri-g2}
+satir <- factor(c(1,1,1,1, 2,2,2,2, 3,3,3,3, 4,4,4,4))
+sutun <- factor(c(1,2,3,4, 1,2,3,4, 1,2,3,4, 1,2,3,4))
+
+latin <- factor(c("A","B","C","D",
+                  "B","A","D","C",
+                  "C","D","A","B",
+                  "D","C","B","A"))
+
+yunan <- factor(c("alpha","beta","gamma","delta",
+                  "gamma","delta","alpha","beta",
+                  "delta","gamma","beta","alpha",
+                  "beta","alpha","delta","gamma"))
+
+yanit <- c(95,75,65,55,
+           72,92,58,63,
+           68,60,90,70,
+           57,66,74,88)
+
+veri <- data.frame(satir, sutun, latin, yunan, yanit)
+veri
+```
+
+## Tasarimin Gecerliligi (Greko-Latin Kare Kontrolu)
+
+```{r kontrol-g2}
+# Latin harfleri satir ve sutunlarda 1 kez mi?
+table(veri$satir, veri$latin)
+table(veri$sutun, veri$latin)
+
+# Yunan harfleri satir ve sutunlarda 1 kez mi?
+table(veri$satir, veri$yunan)
+table(veri$sutun, veri$yunan)
+
+# Ortogonallik: her Latin-Yunan cifti 1 kez mi?
+table(veri$latin, veri$yunan)
+```
+
+Tum tablolarda her hucrenin 1 olmasi tasarimin gecerli bir Greko-Latin
+kare oldugunu gosterir.
+
+## Tanimlayici Toplamlar
+
+```{r toplamlar-g2}
+# Satir toplamlari
+data.frame(Satir = levels(veri$satir),
+           Toplam = as.vector(tapply(veri$yanit, veri$satir, sum)))
+
+# Sutun toplamlari
+data.frame(Sutun = levels(veri$sutun),
+           Toplam = as.vector(tapply(veri$yanit, veri$sutun, sum)))
+
+# Latin toplamlari
+data.frame(Latin = levels(veri$latin),
+           Toplam = as.vector(tapply(veri$yanit, veri$latin, sum)))
+
+# Yunan toplamlari
+data.frame(Yunan = levels(veri$yunan),
+           Toplam = as.vector(tapply(veri$yanit, veri$yunan, sum)))
+
+# Genel toplam ve kareler toplami
+data.frame(Olcum = c("Genel toplam (T..)", "Kareler toplami (sum Y^2)"),
+           Deger = c(sum(veri$yanit), sum(veri$yanit^2)))
+```
+
+### Kareler Toplami Hesabi (Elle Cozum)
+
+```
+p = 4, N = p^2 = 16
+
+Duzeltme terimi:
+  DT = T..^2 / N = 1148^2 / 16 = 82369
+
+Genel Kareler Toplami:
+  GKT = sum(Y^2) - DT = 84930 - 82369 = 2561
+
+Satir (bloklama):
+  SS_satir = (290^2 + 285^2 + 288^2 + 285^2)/4 - DT = 4.50
+
+Sutun (bloklama):
+  SS_sutun = (292^2 + 293^2 + 287^2 + 276^2)/4 - DT = 45.50
+
+Latin:
+  SS_latin = (365^2 + 291^2 + 262^2 + 230^2)/4 - DT = 2493.50
+
+Yunan:
+  SS_yunan = (289^2 + 285^2 + 285^2 + 289^2)/4 - DT = 4.00
+
+Hata:
+  SS_hata = GKT - SS_satir - SS_sutun - SS_latin - SS_yunan
+          = 2561 - 4.50 - 45.50 - 2493.50 - 4.00 = 13.50
+```
+
+## Normallik Varsayiminin Kontrolu
+
+```{r normallik-g2}
+shapiro.test(veri$yanit)
+```
+
+### Normallik Yorumu
+
+Shapiro-Wilk testinde W = 0.90976, p = 0.1153 > 0.05 oldugundan H0
+(yanitlar normal dagilimdan gelir) reddedilemez; normallik varsayimi
+saglanmistir. p-degeri 0.05'in uzerinde olmakla birlikte diger analizlere
+gore daha dusuktur; bu, Latin faktorundeki guclu ayrismanin dagilimi
+hafifce saga/sola cektigini yansitabilir, ancak sapma anlamlilik esigine
+ulasmamistir. 16 gozlemle testin gucu sinirli oldugundan yuksek p-degeri
+normalligin kesin kaniti degil, sapmayi reddedecek delil bulunamadigi
+seklinde okunur. ANOVA F testi kucuk sapmalara karsi dayaniklidir.
+
+## ANOVA: Greko-Latin Kare Modeli
+
+```{r anova-g2}
+model <- aov(yanit ~ satir + sutun + latin + yunan, data = veri)
+summary(model)
+```
+
+### ANOVA Tablosu (Elle Cozum ile Karsilastirma)
+
+```
+Kaynak          SD   KT        KO        F        F_tablo(0.05)   Karar
+-----------------------------------------------------------------------
+satir (blok)     3      4.50     1.500    0.333   9.28            H0 RED DEGIL
+sutun (blok)     3     45.50    15.167    3.370   9.28            H0 RED DEGIL
+latin            3   2493.50   831.167  184.704   9.28            H0 RED
+yunan            3      4.00     1.333    0.296   9.28            H0 RED DEGIL
+Residuals        3     13.50     4.500
+Total           15   2561.00
+
+MS_hata = 13.50/3 = 4.500
+F_satir =   1.500 / 4.500 = 0.333
+F_sutun =  15.167 / 4.500 = 3.370
+F_latin = 831.167 / 4.500 = 184.704
+F_yunan =   1.333 / 4.500 = 0.296
+```
+
+### ANOVA Yorumu
+
+ Sonuclar asagidaki gibi degerlendirilir (alpha = 0.05):
+
+**Satir (bloklama):** F = 0.333, p = 0.80 > 0.05 -> H0 reddedilemez.
+Satirlar arasinda anlamli fark yoktur. Bloklama faktorunun anlamsiz
+cikmasi olagandir.
+
+**Sutun (bloklama):** F = 3.370, p = 0.17 > 0.05 -> H0 reddedilemez.
+Sutunlar arasinda anlamli fark yoktur, ancak F degeri digerlerine gore
+daha yuksektir.
+
+**Latin faktoru:** F = 184.704, p = 0.00067 < 0.05 -> H0 RED. Latin
+harfleri arasinda anlamli bir fark vardir. Latin toplamlarina gore
+A (365) > B (291) > C (262) > D (230) seklinde belirgin bir azalan
+siralama vardir; bu buyuk ayrisma F degerinin bu kadar yuksek olmasinin
+nedenidir. Hangi harflerin birbirinden farkli oldugu TukeyHSD ile incelenir.
+
+**Yunan faktoru:** F = 0.296, p = 0.83 > 0.05 -> H0 reddedilemez. Yunan
+harfleri arasinda anlamli fark yoktur.
+
+**Genel degerlendirme:** Dort etkiden yalnizca Latin faktoru anlamlidir;
+satir, sutun ve Yunan faktorleri anlamsizdir. Latin faktorunun kareler
+toplami (2493.5), toplam degiskenligin (2561) buyuk cogunlugunu
+aciklamaktadir. Greko-Latin karede hata serbestlik derecesi yalnizca 3
+oldugundan F testinin gucu sinirlidir; buna ragmen Latin faktorundeki
+ayrisma bu esigi rahatlikla asacak kadar buyuktur.
+
+## Coklu Karsilastirmalar (TukeyHSD)
+
+Latin faktoru anlamli ciktigi icin hangi harflerin birbirinden farkli
+oldugunu Tukey HSD ile inceleriz.
+
+```{r tukey-g2}
+TukeyHSD(model, "latin")
+```
+
+### Tukey HSD Yorumu
+
+TukeyHSD, Latin faktoru icindeki alti harf ikilisini ailesel hata oranini
+(%5) koruyarak karsilastirir. Bir ikili icin guven araligi sifiri icermiyorsa
+ve p adj < 0.05 ise fark anlamlidir.
+
+Alti karsilastirmanin tamami anlamlidir; hicbir guven araligi sifiri
+icermemekte ve tum p adj degerleri 0.05'in altindadir:
+
+- B-A = -18.50, GA = [-25.74 , -11.26], p adj = 0.0035
+- C-A = -25.75, GA = [-32.99 , -18.51], p adj = 0.0014
+- D-A = -33.75, GA = [-40.99 , -26.51], p adj = 0.0007
+- C-B =  -7.25, GA = [-14.49 , -0.01], p adj = 0.0498
+- D-B = -15.25, GA = [-22.49 , -8.01], p adj = 0.0062
+- D-C =  -8.00, GA = [-15.24 , -0.76], p adj = 0.0383
+
+Tum farklarin negatif olmasi, A'dan D'ye dogru yanit degerinin surekli
+dustugunu gosterir. Latin toplamlarina gore siralama A (365) > B (291) >
+C (262) > D (230) seklindedir ve dort harfin tamami birbirinden anlamli
+sekilde ayrismaktadir. C-B (p = 0.0498) ve D-C (p = 0.0383) ikilileri
+esige yakin olsa da anlamlilik sinirini gecmektedir.
+
+## Kutu Grafikleri (Dagilim Karsilastirmasi)
+
+```{r boxplot-latin-g2}
+boxplot(yanit ~ latin, data = veri,
+        col = c("lightblue", "lightgreen", "lightpink", "orange"),
+        main = "Latin Faktorune Gore Dagilim",
+        xlab = "Latin Harfi", ylab = "Yanit")
+```
+
+```{r boxplot-yunan-g2}
+boxplot(yanit ~ yunan, data = veri,
+        col = c("lightblue", "lightgreen", "lightpink", "orange"),
+        main = "Yunan Faktorune Gore Dagilim",
+        xlab = "Yunan", ylab = "Yanit")
+```
+### Kutu Grafigi Yorumu
+
+**Latin faktoru:** Dort harf birbirinden net sekilde ayrismaktadir. A en
+yuksek (~91), ardindan B (~73), C (~65) ve D (~57) gelir; kutular birbiriyle
+ust uste binmemektedir. Her grubun kutusu dar, yani grup ici degiskenlik
+dusuktur. Bu belirgin azalan siralama, ANOVA'da Latin faktorunun guclu
+anlamli cikmasiyla (F = 184.7) ve TukeyHSD'de tum ikililerin anlamli
+olmasiyla tutarlidir.
+
+**Yunan faktoru:** Dort grubun medyanlari birbirine cok yakindir (hepsi
+~68-71 araliginda) ve kutular genis olcude ust uste binmektedir. Kutularin
+genis ve ortusur olmasi, Yunan faktorunun ANOVA'da anlamsiz cikmasiyla
+(F = 0.296, p = 0.83) uyumludur.
+
+## Sonuc ve Yorum
+
+Greko-Latin kare tasarimi ile dort faktor (satir, sutun, Latin ve Yunan)
+ayni anda, yalnizca 16 gozlem kullanilarak incelenmistir.
+
+**1. Bloklama faktorleri (satir ve sutun):** Her ikisi de anlamsizdir
+(satir F = 0.333, p = 0.80; sutun F = 3.370, p = 0.17). Bloklama
+faktorlerinin anlamsiz cikmasi olagandir; bunlar deney faktoru degil,
+kontrol amacli eklenen bloklardir.
+
+**2. Latin faktoru:** F = 184.704, p = 0.00067 -> anlamli. Dort faktor
+icinde tek anlamli olan budur ve toplam degiskenligin buyuk cogunlugunu
+aciklamaktadir (SS_latin = 2493.5, GKT = 2561). TukeyHSD'ye gore dort
+harfin tamami birbirinden anlamli sekilde farklidir; siralama
+A (365) > B (291) > C (262) > D (230) seklinde azalmaktadir.
+
+**3. Yunan faktoru:** F = 0.296, p = 0.83 -> anlamsiz. Yunan harfleri
+arasinda performans farki yoktur.
+
+**Genel sonuc:** Yanit degiskenindeki degiskenligin neredeyse tamami Latin
+faktorunden kaynaklanmaktadir; diger uc faktorun (satir, sutun, Yunan)
+etkisi yoktur. Bu sonuc degerlendirilirken Greko-Latin kare tasariminin
+yalnizca 3 hata serbestlik derecesi biraktigi goz onunde bulundurulmalidir;
+buna ragmen Latin faktorundeki ayrisma bu sinirli gucu rahatlikla asacak
+kadar buyuktur. Latin faktorunun en yuksek seviyesi A, en dusuk seviyesi
+D olarak one cikmaktadir.
+
+\newpage
+
+# BOLUM 6: Latin Kare Tasarimi 5x5 (Tablo 3)
+
+## Problemin Tanimi
+
+Bu bolumde bir **Latin Kare (Latin Square)** tasarimi analiz edilmektedir.
+Latin kare, iki bloklama faktorunu (satir ve sutun) ayni anda kontrol ederek
+tek bir muamele faktorunun etkisini incelemeye olanak tanir. Her muamele
+(Latin harfi) her satirda ve her sutunda tam olarak bir kez yer alir.
+
+Deney tasarimi (p = 5 seviye, N = p^2 = 25 gozlem):
+
+- **Satir:** bloklama faktoru  (i = 1..5)
+- **Sutun:** bloklama faktoru  (j = 1..5)
+- **Latin harfi (muamele):** A, B, C, D, E  (l = 1..5)
+
+Istatistiksel model:
+
+$$
+Y_{ijl} = \mu + B_i + \alpha_j + \gamma_l + \varepsilon_{ijl}
+$$
+
+Burada $\mu$ genel ortalama; $B_i$ satir, $\alpha_j$ sutun, $\gamma_l$ Latin
+(muamele) etkisi; $\varepsilon_{ijl}$ rastgele hatadir. Latin karede
+etkilesim terimi tahmin edilemez (yeterli serbestlik derecesi yoktur);
+model tamamen toplamsaldir (additif).
+
+## Hipotezler
+
+Uc etki icin ayri ayri test kurulur (alpha = 0.05):
+
+**Satir (bloklama):**
+$$H_0: B_i = 0 \;\; \forall i \qquad H_1: \text{en az bir } B_i \neq 0$$
+
+**Sutun (bloklama):**
+$$H_0: \alpha_j = 0 \;\; \forall j \qquad H_1: \text{en az bir } \alpha_j \neq 0$$
+
+**Latin (muamele):**
+$$H_0: \gamma_l = 0 \;\; \forall l \qquad H_1: \text{en az bir } \gamma_l \neq 0$$
+
+Asil ilgilendigimiz muamele Latin faktorudur; satir ve sutun bloklama
+amaciyla modele dahil edilmistir.
+
+## Verinin Girilmesi
+
+Her gozlem; satir, sutun, Latin harfi ve yanit degeri ile tanimlanir.
+
+```{r veri-l2}
+satir <- factor(c(1,1,1,1,1, 2,2,2,2,2, 3,3,3,3,3, 4,4,4,4,4, 5,5,5,5,5))
+sutun <- factor(c(1,2,3,4,5, 1,2,3,4,5, 1,2,3,4,5, 1,2,3,4,5, 1,2,3,4,5))
+
+latin <- factor(c("A","B","C","D","E",
+                  "B","C","D","E","A",
+                  "C","D","E","A","B",
+                  "D","E","A","B","C",
+                  "E","A","B","C","D"))
+
+yanit <- c(92,78,65,55,45,
+           80,67,58,48,94,
+           70,60,50,95,82,
+           62,52,90,79,68,
+           54,88,76,66,57)
+
+veri <- data.frame(satir, sutun, latin, yanit)
+veri
+```
+
+## Tasarimin Gecerliligi (Latin Kare Kontrolu)
+
+Latin karenin gecerli olmasi icin her Latin harfi, her satirda ve her
+sutunda tam olarak bir kez gelmelidir.
+
+```{r kontrol-l2}
+# Her harf her satirda 1 kez mi?
+table(veri$satir, veri$latin)
+
+# Her harf her sutunda 1 kez mi?
+table(veri$sutun, veri$latin)
+```
+
+Tum tablolarda her hucrenin 1 olmasi tasarimin gecerli bir Latin kare
+oldugunu gosterir.
+
+## Tanimlayici Toplamlar
+
+```{r toplamlar-l2}
+# Satir toplamlari
+data.frame(Satir = levels(veri$satir),
+           Toplam = as.vector(tapply(veri$yanit, veri$satir, sum)))
+
+# Sutun toplamlari
+data.frame(Sutun = levels(veri$sutun),
+           Toplam = as.vector(tapply(veri$yanit, veri$sutun, sum)))
+
+# Latin (muamele) toplamlari
+data.frame(Latin = levels(veri$latin),
+           Toplam = as.vector(tapply(veri$yanit, veri$latin, sum)))
+
+# Genel toplam ve kareler toplami
+data.frame(Olcum = c("Genel toplam (T..)", "Kareler toplami (sum Y^2)"),
+           Deger = c(sum(veri$yanit), sum(veri$yanit^2)))
+```
+### Kareler Toplami Hesabi (Elle Cozum)
+
+```
+p = 5 (her faktor seviyesi), N = p^2 = 25
+
+Duzeltme terimi:
+  DT = T..^2 / N = 1731^2 / 25 = 119854.44
+
+Genel Kareler Toplami:
+  GKT = sum(Y^2) - DT = 125519 - 119854.44 = 5664.56
+
+Satir (bloklama):
+  SS_satir = (335^2 + 347^2 + 357^2 + 351^2 + 341^2)/5 - DT
+           = 599565/5 - 119854.44 = 119913 - 119854.44 = 58.56
+
+Sutun (bloklama):
+  SS_sutun = (358^2 + 345^2 + 339^2 + 343^2 + 346^2)/5 - DT
+           = 599475/5 - 119854.44 = 119895 - 119854.44 = 40.56
+
+Latin (muamele):
+  SS_latin = (459^2 + 395^2 + 336^2 + 292^2 + 249^2)/5 - DT
+           = 626867/5 - 119854.44 = 125373.4 - 119854.44 = 5518.96
+
+Hata:
+  SS_hata = GKT - SS_satir - SS_sutun - SS_latin
+          = 5664.56 - 58.56 - 40.56 - 5518.96 = 46.48
+```
+
+## Normallik Varsayiminin Kontrolu
+
+```{r normallik-l2}
+shapiro.test(veri$yanit)
+```
+### Normallik Varsayimi Yorumu
+
+Shapiro-Wilk testinde W = 0.950, p = 0.2511 > 0.05 oldugundan H0
+(yanitlar normal dagilimdan gelir) reddedilemez. Yani gozlemlerin normal
+dagilimdan anlamli bir sapma gosterdigine dair delil yoktur ve ANOVA'nin
+normallik varsayimi bu veri icin karsilanmaktadir.
+
+Not: Latin karede toplam gozlem sayisi 25 ile sinirli oldugundan testin
+gucu yuksek degildir; bu nedenle yuksek p-degeri normalligin kesin kaniti
+olarak degil, sapmayi reddedecek delil bulunamadigi seklinde okunmalidir.
+
+
+## ANOVA: Latin Kare Modeli
+
+```{r anova-l2}
+model <- aov(yanit ~ satir + sutun + latin, data = veri)
+summary(model)
+```
+### Latin Kare Tasarimi Varyans Analizi (ANOVA) Sonuclari
+
+Sonuclar alpha = 0.05 anlamlilik duzeyine gore degerlendirilmistir:
+
+**Latin (muamele) etkisi:** F = 356.215, p < 0.001 -> H0 RED. Latin
+harfleri (muameleler) arasinda anlamli bir fark vardir. Latin faktorunun
+kareler toplami (5518.96), toplam degiskenligin (GKT = 5664.56) buyuk
+cogunlugunu aciklamaktadir; bu da F degerinin bu kadar yuksek cikmasinin
+nedenidir. Hangi harflerin birbirinden farkli oldugu TukeyHSD ile incelenir.
+
+**Satir (bloklama) etkisi:** F = 3.780, p = 0.0326 < 0.05 -> H0 RED.
+Satirlar arasinda anlamli fark vardir. Bir bloklama faktorunun anlamli
+cikmasi, satir yonunde gercek bir degiskenlik bulundugunu ve bunun modele
+dahil edilerek hata varyansinin azaltildigini gosterir.
+
+**Sutun (bloklama) etkisi:** F = 2.618, p = 0.0880 > 0.05 -> H0 reddedilemez.
+Sutunlar arasinda %5 duzeyinde anlamli fark yoktur; yalnizca %10 duzeyinde
+marjinal bir egilimden soz edilebilir.
+
+**Genel degerlendirme:** Asil ilgilenilen muamele faktoru (Latin) anlamli
+ciktigindan tasarim amacina ulasmistir. Iki bloklama yonunden satir anlamli,
+sutun anlamsizdir. Sutun bloklamasi anlamsiz olsa da Latin kare butunlugu
+icin modelde tutulur.
+
+## Coklu Karsilastirmalar (TukeyHSD)
+
+Latin (muamele) faktoru anlamli ciktigi icin hangi harflerin birbirinden
+farkli oldugunu Tukey HSD ile inceleriz.
+
+```{r tukey-l2}
+TukeyHSD(model, "latin")
+```
+### Tukey HSD Coklu Karsilastirma Testi Sonuclari
+
+ANOVA'da Latin faktoru anlamli ciktigi icin, farkin hangi gruplardan
+kaynaklandigini belirlemek amaciyla Tukey HSD testi uygulanmistir.
+Sonuclar alpha = 0.05 duzeyinde degerlendirilmistir.
+
+**Tum ikililer anlamli:** On karsilastirmanin tamaminda guven araligi
+sifiri icermemekte ve tum p adj degerleri 0.05'in altinda kalmaktadir.
+Dolayisiyla muamele gruplarinin her ikilisi birbirinden anlamli sekilde
+farklidir; hicbir muamele bir digeriyle ayni etkiyi gostermemektedir.
+
+**Siralama:** Tum farklarin (diff) negatif olmasi, A'dan E'ye dogru yanit
+degerinin surekli dustugunu gosterir. Latin toplamlarina gore siralama
+A (459) > B (395) > C (336) > D (292) > E (249) seklindedir ve bu
+basamaklarin her biri bir oncekinden anlamli olarak daha dusuktur.
+En yuksek yaniti A, en dusuk yaniti E muamelesi uretmektedir.
+
+## Kutu Grafikleri (Dagilim Karsilastirmasi)
+
+```{r boxplot-latin-l2}
+boxplot(yanit ~ latin, data = veri,
+        col = c("lightblue", "lightgreen", "lightpink", "orange", "yellow"),
+        main = "Latin (Muamele) Faktorune Gore Dagilim",
+        xlab = "Latin Harfi", ylab = "Yanit")
+```
+
+```{r boxplot-satir-l2}
+boxplot(yanit ~ satir, data = veri,
+        col = c("lightblue", "lightgreen", "lightpink", "orange", "yellow"),
+        main = "Satira Gore Dagilim",
+        xlab = "Satir", ylab = "Yanit")
+```
+### Kutu Grafikleri Yorumu
+
+**Latin (muamele) faktoru:** Gruplar soldan saga net ve kademeli bir dusus
+izlemektedir; en yuksek yaniti A (~92) verirken, bunu sirasiyla B (~79),
+C (~67), D (~58) ve E (~50) izlemektedir. Kutular dikey eksende birbiriyle
+hic ust uste binmemekte ve her grubun kutusu oldukca dardir; yani grup ici
+degiskenlik dusuktur. Bu net ayrisma, ANOVA'da Latin faktorunun guclu anlamli
+cikmasi (F = 356.215, p < 0.001) ve TukeyHSD'de on ikilinin tamaminin anlamli
+olmasiyla tutarlidir.
+
+**Satir faktoru:** Medyanlar birbirine oldukca yakindir (~65-70 araliginda)
+ve kutular genis olcude ust uste binmektedir; bazi satirlarda (ornegin 1 ve 3)
+yayilim daha genistir. Kutularin bu sekilde ortusmesi, satir faktorunun yanit
+uzerindeki etkisinin Latin faktorune gore cok daha zayif oldugunu gosterir.
+Yine de ANOVA'da satir bloklamasi %5 duzeyinde anlamli cikmistir (F = 3.780,
+p = 0.0326); bu etki grafikten gozle secilemeyecek kadar kucuk olmakla birlikte
+bloklama yoluyla hata varyansini azaltacak kadar gercektir.
+
+## Sonuc ve Yorum
+
+5x5 Latin kare tasarimi ile iki bloklama yonu (satir ve sutun) kontrol
+altina alinarak tek bir muamele faktorunun (Latin harfi) etkisi, 25 gozlem
+kullanilarak incelenmistir.
+
+**1. Latin (muamele):** F = 356.215, p < 0.001 -> anlamli. Asil ilgilendigimiz
+muamele faktoru anlamlidir ve toplam degiskenligin neredeyse tamamini aciklar
+(SS_latin = 5518.96, GKT = 5664.56). TukeyHSD'ye gore on harf ikilisinin
+tamami birbirinden anlamli sekilde farklidir; siralama A (459) > B (395) >
+C (336) > D (292) > E (249) seklinde azalmaktadir. En yuksek yaniti A, en
+dusuk yaniti E muamelesi uretmektedir.
+
+**2. Satir (bloklama):** F = 3.780, p = 0.0326 -> anlamli. Satirlar arasinda
+gercek bir degiskenlik vardir. Bir bloklama faktorunun anlamli cikmasi,
+bloklamanin yerinde yapildigini ve hata varyansini azaltarak tasarimin
+duyarliligini artirdigini gosterir.
+
+**3. Sutun (bloklama):** F = 2.618, p = 0.0880 -> anlamsiz. Sutunlar arasinda
+%5 duzeyinde anlamli fark yoktur; yalnizca %10 duzeyinde marjinal bir egilim
+soz konusudur.
+
+**Genel sonuc:** Tasarim amacina ulasmistir; muamele faktoru (Latin) cok
+guclu ve anlamli bir etki gostermistir. Iki bloklama yonunden satir anlamli,
+sutun anlamsizdir. Sutun bloklamasi anlamsiz olsa da Latin kare butunlugu
+acisindan modelde tutulmasi gereklidir. Latin faktorunun en yuksek seviyesi
+A, en dusuk seviyesi E olarak one cikmaktadir.
