@@ -37,7 +37,7 @@ R ve RStudio gerektirir. Kaynak dosyayı açıp derlemek için:
 install.packages("rmarkdown")
 
 # Derleme (XeLaTeX gerektirir)
-rmarkdown::render("experimental-design-anova.rmd.Rmd")
+rmarkdown::render("experimental-design-anova.Rmd")
 ```
 
 PDF çıktısı `xelatex` ile derlenmektedir; sisteminizde bir LaTeX dağıtımı (örn. TinyTeX veya MiKTeX) kurulu olmalıdır.
